@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -27,10 +28,32 @@ class _ChatScreenState extends State<ChatScreen> {
     _speech = stt.SpeechToText();
     _flutterTts = FlutterTts();
 
+    // Cargar los mensajes guardados
+    _loadMessages();
+
     // Configura el TTS
     _flutterTts.setLanguage("es-ES");
     _flutterTts.setSpeechRate(0.5);
     _flutterTts.setPitch(1.0);
+  }
+
+  // Cargar los mensajes desde SharedPreferences
+  Future<void> _loadMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? savedMessages = prefs.getString('messages');
+    if (savedMessages != null) {
+      final List<dynamic> decodedMessages = jsonDecode(savedMessages);
+      setState(() {
+        messages.addAll(decodedMessages.map((message) => Map<String, String>.from(message)));
+      });
+    }
+  }
+
+  // Guardar los mensajes en SharedPreferences
+  Future<void> _saveMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String encodedMessages = jsonEncode(messages);
+    prefs.setString('messages', encodedMessages);
   }
 
   @override
@@ -93,7 +116,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-
   void handleSendMessage(String input) async {
     if (input.isEmpty) return;
 
@@ -113,6 +135,9 @@ class _ChatScreenState extends State<ChatScreen> {
       messages.add({'bot': botResponse});
       isLoading = false;
     });
+
+    // Guardar los mensajes actualizados
+    _saveMessages();
 
     // Leer la respuesta en voz alta
     await _flutterTts.speak(botResponse);
